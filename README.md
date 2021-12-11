@@ -1,1 +1,1 @@
-# Pixel-Art-Editor
+# Pixel Art Editor
