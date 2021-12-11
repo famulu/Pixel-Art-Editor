@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Art Editor</title>
+    <script src="script.js"></script>
+</head>
+<body>
+
+    <div></div>
+    <script>
+        let state = {
+            tool: "paint",
+            color: "#000000",
+            picture: Picture.create(60, 30, "#f0f0f0")
+        };
+
+        const app = new PixelEditor(
+            state,
+            {
+                tools: {paint, rectangle, floodFill, pickColor},
+                controls: [ToolSelect, ColorSelect],
+                dispatchFunction(updatedProperties) {
+                    state = updateState(state, updatedProperties);
+                    app.sync(state);
+                }
+            }
+        );
+
+        document.querySelector("div").appendChild(app.element);
+    </script>
+
+</body>
+</html>
