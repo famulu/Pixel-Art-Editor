@@ -21,12 +21,6 @@ class Picture {
     }
 }
 
-function updateState(currentState, updatedProperties) {
-    // A state is an object that holds the current tool, color and picture
-    // return Object.assign({}, currentState, updatedProperties);
-    return {...currentState, ...updatedProperties};
-}
-
 function createElement(tagName, properties, ...children) {
     const element = document.createElement(tagName);
     Object.assign(element, properties); // Might not work
@@ -232,3 +226,166 @@ function floodFill({x, y}, state, dispatchFunction) {
 function pickColor(position, state, dispatchFunction) {
     dispatchFunction({color: state.picture.pixelsGrid[position.y][position.x]});
 }
+
+class SaveButton {
+    constructor(state) {
+        this.picture = state.picture;
+        this.element = createElement(
+            "button",
+            {onclick: () => this.save()},
+            "💾 Save "
+        );
+    }
+    save() {
+        const canvas = createElement("canvas");
+        drawPicture(this.picture, canvas);
+        const link = createElement(
+            "a",
+            {
+                href: canvas.toDataURL(),
+                download: "artwork.png"
+            }
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+    sync(state) {
+        this.picture = state.picture;
+    }
+}
+
+class LoadButton {
+    constructor(_, {dispatchFunction}) {
+        this.element = createElement(
+            "button",
+            {
+                onclick: () => startLoad(dispatchFunction)
+            },
+            "📂 Load File "
+        );
+    }
+    sync() {}
+}
+
+function startLoad(dispatchFunction) {
+    const fileInput = createElement(
+        "input",
+        {
+            type: "file",
+            onchange: () => finishLoad(fileInput.files[0], dispatchFunction)
+        }
+    );
+    // document.body.appendChild(fileInput);
+    fileInput.click();
+    fileInput.remove();
+}
+
+function finishLoad(file, dispatchFunction) {
+    const reader = new FileReader();
+
+    reader.addEventListener("load", () => {
+        const img = createElement(
+            "img",
+            {
+                src: reader.result,
+                onload: () => dispatchFunction({picture: imgToPicture(img)})
+            }
+        );
+    });
+
+    reader.readAsDataURL(file);
+}
+
+function imgToPicture(image) {
+    const canvas = createElement("canvas", {
+        width: image.width, 
+        height: image.height
+    });
+    canvas.drawImage(image, 0, 0);
+    const {data, height, width} = canvas.getImageData()
+    function toHex(n) {
+        return n.toString(16).padStart(2, "0");
+    }
+    const pixelsGrid = [];
+    for (let y = 0; y < height; y++) {
+        const row = [];
+        for (let x = 0; x < width; x += 4) {
+            const [r, g, b] = data.slice(y * height + x, y * height + x + 3);
+            row.push("#" + toHex(r) + toHex(g) + toHex(b));
+        }
+        pixelsGrid.push(row);
+    }
+    return new Picture(pixelsGrid, width, height);
+}
+
+function updateStateAndHistory(currentState, updatedProperties) {
+    if (updatedProperties.undo) {
+        if (!currentState.pictureHistory.length) return currentState;
+        return {
+            ...currentState, 
+            ...updatedProperties, 
+            picture: currentState.pictureHistory.pop(),
+            lastSave: 0
+        };
+    } else if (updatedProperties.picture && Date.now() >= currentState.lastSave + 1000) {
+        // Adds a new entry to history if PictureCanvas has been updated and at least 1000 ms has elapsed
+        currentState.pictureHistory.push(currentState.picture);
+        return {...currentState, ...updatedProperties, lastSave: Date.now()};
+    } else {
+        return {...currentState, ...updatedProperties};
+    }
+}
+
+class UndoButton {
+    constructor(state, {dispatchFunction}) {
+        this.element = createElement(
+            "button",
+            {
+                onclick: () => dispatchFunction({undo: true}),
+                disabled: !state.pictureHistory.length
+            },
+            "⎌ Undo "
+        );
+    }
+    sync(state) {
+        this.element.disabled = !state.pictureHistory.length;
+    }
+}
+
+function main() {
+
+    const startState = {
+        tool: "paint",
+        color: "#000000",
+        pictureHistory: [],
+        picture: Picture.create(60, 30, "#f0f0f0"),
+        lastSave: 0
+    };
+    
+    const baseTools = {paint, floodFill, rectangle, pickColor};
+    
+    const baseControls = [
+        ToolSelect,
+        ColorSelect,
+        SaveButton,
+        LoadButton,
+        UndoButton
+    ];
+    
+    function startPixelEditor({state = startState, tools = baseTools, controls = baseControls}) {
+        const app = new PixelEditor(state, {
+            tools,
+            controls,
+            dispatchFunction(updatedProperties) {
+                state = updateStateAndHistory(state, updatedProperties);
+                app.sync(state);
+            }
+        });
+        return app.element;
+    }
+
+    document.querySelector("div").appendChild(startPixelEditor({}));
+}
+
+main();
