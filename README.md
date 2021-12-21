@@ -21,5 +21,7 @@ The tool picker consists of a total of 6 tools:
 - A circle tool
 - A line drawing tool
 
+For quicker prototyping, <kbd>⌘</kbd> + <kbd>Z</kbd> *or* <kbd>CTRL</kbd> + <kbd>Z</kbd> can be used to undo your last action.
+
 ## Credit
 Original idea from [Eloquent Javascript](https://eloquentjavascript.net)
